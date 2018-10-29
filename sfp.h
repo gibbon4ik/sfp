@@ -15,14 +15,47 @@
 #include <sys/types.h>
 #include <time.h>
 
+#define EV_MULTIPLICITY 0
+#include <ev.h>
+
 #include "util.h"
+#include "queue.h"
+
+#define APP_NAME "sfp v0.1"
+
+/* max size of string with TCP/UDP port */
+#define PORT_STR_SIZE   6
+
+#define DZ_STDIO_OPEN  1   /* do not close STDIN, STDOUT, STDERR */
+#define TVSTAMP_GMT  1
+
+/* max size of string with IPv4 address */
+#define IPADDR_STR_SIZE 16
 
 /* application error codes */
 static const int ERR_PARAM      =  1;    /* invalid parameter(s) */
 static const int ERR_REQ        =  2;    /* error parsing request */
 static const int ERR_INTERNAL   =  3;    /* internal error */
 
-/* max size of string with TCP/UDP port */
-#define PORT_STR_SIZE   6
+static const char CONFIG_NAME[]	= "sfp.cfg";
+
+typedef enum {
+	CLI_CONNECT,
+	CLI_HEAD,
+	CLI_DIRECT
+} clistate;
+
+struct client {
+	ev_io io;
+	char addr[IPADDR_STR_SIZE];
+	struct channel *channel;
+	char rbuf[256];
+	int rbytes, rcapa;
+	time_t starttime;
+	size_t bytes;
+	int errors;
+	clistate state;
+	LIST_ENTRY(client) link;
+};
 
 #endif

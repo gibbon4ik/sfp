@@ -4,9 +4,6 @@
 #include "sfp.h"
 #include "util.h"
 
-/* max size of string with IPv4 address */
-#define IPADDR_STR_SIZE 16
-
 typedef u_short flag_t;
 #if !defined( f_TRUE ) && !defined( f_FALSE )
     #define     f_TRUE  ((flag_t)1)

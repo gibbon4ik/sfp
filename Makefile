@@ -1,8 +1,9 @@
 
-CFLAGS += -Iev -O0 -g3 -Wall
+CFLAGS += -O0 -g3 -Wall
+LDFLAGS += -lev
 
-obj += util.c
-obj += sfp_opt.c
+obj += util.o
+obj += sfp_opt.o
 obj += sfp.o
 
 #topor_ev.o: CFLAGS = -Iev -O2
@@ -11,7 +12,7 @@ obj += sfp.o
 	$(CC) $(CFLAGS) -c $^ -o $@
 
 sfp: $(obj)
-	$(CC) $(LDFLAGS) $^ -o $@
+	$(CC) $^ $(LDFLAGS) -o $@
 
 .PHONY: clean
 clean:
