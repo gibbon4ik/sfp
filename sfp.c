@@ -104,26 +104,75 @@ server_accept(EV_P_ ev_io *w, int revents)
 	}
 
 	int len;
-	for (len = 1 << 21; len > 0; len -= 1 << 18)
+	for (len = 1 << 20; len > 0; len -= 1 << 18)
 		if (setsockopt(fd, SOL_SOCKET, SO_SNDBUF, &len, sizeof(len)) == 0) {
 			break;
 		}
 
 
-/*
-	struct client *client = calloc(sizeof(*client), 1);
+	struct connect *connect = calloc(sizeof(*connect), 1);
 	const char *peerip = get_peerip(fd);
-	strncpy(client->addr, peerip, sizeof(client->addr));
-	client->bytes = 0;
-	client->errors = 0;
-	client->starttime = time(NULL);
-	client->state = CLI_CONNECT;
+	strncpy(connect->cliaddr, peerip, sizeof(connect->cliaddr));
+	connect->clirbsize = 16*1024;
+	connect->clirb = rb_new(connect->clirbsize);
+	connect->srvrb = NULL;
+
+	connect->bytes = 0;
+	connect->errors = 0;
+	connect->starttime = time(NULL);
+	connect->state = CLI_CONNECT;
 
 	void client_cbread(ev_io *w, int revents);
-	ev_io_init(&client->io, (void *)client_cbread, fd, EV_READ);
-	ev_io_start(&client->io);
-*/
+	ev_io_init(&connect->cliio, (void *)client_cbread, fd, EV_READ);
+	ev_io_start(&connect->cliio);
 }
+
+
+void
+client_cbread(ev_io *w, int revents)
+{
+	struct connect *c = (struct connect *)w;
+	if (c->state == CLI_CONNECT) {
+		int r = recv(w->fd, c->rbuf + c->rbytes, sizeof(c->rbuf) - c->rbytes, 0);
+		if (r < 0) {
+			if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR)
+				return;
+
+			wrlog(L_ERROR, "Client %s receive error: %s", c->addr, strerror(errno));
+			client_close(c);
+			return;
+		}
+
+		c->rbytes += r;
+		char *lf = memmem(c->rbuf, c->rbytes, "\n", 1);
+		if (!lf && c->rbytes < sizeof(c->rbuf))
+			return;
+
+		if (!lf) {
+			wrlog(L_WARNING, "Can't parse request from %s", c->addr);
+			goto close;
+		}
+
+		if (lf - 1 > c->rbuf && *(lf - 1) == '\r')
+			lf--;
+		*lf = 0;
+
+		int cno = client_parse_get(c);
+		if (cno == 0) {
+			wrlog(L_WARNING, "Can't parse request from %s", c->addr);
+			client_write(c, notfound_hdr, strlen(notfound_hdr));
+			goto close;
+		}
+		if(cno == -1 ) {
+			// write stat
+			write_stat(c->io.fd);
+			goto close;
+		}
+
+	}
+	return;
+}
+
 
 int main(int argc, char* const argv[])
 {

@@ -4,6 +4,7 @@ LDFLAGS += -lev
 
 obj += util.o
 obj += sfp_opt.o
+obj += ringbuffer.o
 obj += sfp.o
 
 #topor_ev.o: CFLAGS = -Iev -O2

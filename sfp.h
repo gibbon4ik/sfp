@@ -20,6 +20,7 @@
 
 #include "util.h"
 #include "queue.h"
+#include "ringbuffer.h"
 
 #define APP_NAME "sfp v0.1"
 
@@ -41,21 +42,23 @@ static const char CONFIG_NAME[]	= "sfp.cfg";
 
 typedef enum {
 	CLI_CONNECT,
-	CLI_HEAD,
-	CLI_DIRECT
-} clistate;
+	SRV_CONNECT,
+	RELAY
+} connstate;
 
-struct client {
-	ev_io io;
-	char addr[IPADDR_STR_SIZE];
-	struct channel *channel;
-	char rbuf[256];
-	int rbytes, rcapa;
+struct connect {
+	ev_io  cliio;
+	char   cliaddr[IPADDR_STR_SIZE];
+	struct ringbuf *clirb;
+	size_t clirbsize;
+	ev_io  srvio;
+	char   srvaddr[IPADDR_STR_SIZE];
+	struct ringbuf *srvrb;
+	size_t srvrbsize;
 	time_t starttime;
 	size_t bytes;
 	int errors;
-	clistate state;
-	LIST_ENTRY(client) link;
+	connstate state;
 };
 
 #endif
