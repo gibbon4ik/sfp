@@ -46,19 +46,24 @@ typedef enum {
 	RELAY
 } connstate;
 
+
+#define IOBUFSIZE 16384
 struct connect {
-	ev_io  cliio;
-	char   cliaddr[IPADDR_STR_SIZE];
-	struct ringbuf *clirb;
-	size_t clirbsize;
-	ev_io  srvio;
-	char   srvaddr[IPADDR_STR_SIZE];
-	struct ringbuf *srvrb;
-	size_t srvrbsize;
+	ev_io	cliio;
+	char	cliaddr[IPADDR_STR_SIZE];
+	char	clireadbuf[IOBUFSIZE];
+	size_t  clibufdata;
+
+	ev_io	srvio;
+	char	srvaddr[IPADDR_STR_SIZE];
+	char	srvreadbuf[IOBUFSIZE];
+	size_t 	srvbufdata;
+
 	time_t starttime;
 	size_t bytes;
 	int errors;
 	connstate state;
+	LIST_ENTRY(connect) link;
 };
 
 #endif

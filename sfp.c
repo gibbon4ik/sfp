@@ -1,5 +1,6 @@
 #include <netdb.h>
 #include <assert.h>
+#include <string.h>
 
 #include "sfp.h"
 #include "util.h"
@@ -113,10 +114,7 @@ server_accept(EV_P_ ev_io *w, int revents)
 	struct connect *connect = calloc(sizeof(*connect), 1);
 	const char *peerip = get_peerip(fd);
 	strncpy(connect->cliaddr, peerip, sizeof(connect->cliaddr));
-	connect->clirbsize = 16*1024;
-	connect->clirb = rb_new(connect->clirbsize);
-	connect->srvrb = NULL;
-
+	connect->clibufdata = 0;
 	connect->bytes = 0;
 	connect->errors = 0;
 	connect->starttime = time(NULL);
@@ -133,33 +131,33 @@ client_cbread(ev_io *w, int revents)
 {
 	struct connect *c = (struct connect *)w;
 	if (c->state == CLI_CONNECT) {
-		int r = recv(w->fd, c->rbuf + c->rbytes, sizeof(c->rbuf) - c->rbytes, 0);
+		int r = recv(w->fd, c->clireadbuf + c->clibufdata, IOBUFSIZE - c->clibufdata, 0);
 		if (r < 0) {
 			if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR)
 				return;
 
-			wrlog(L_ERROR, "Client %s receive error: %s", c->addr, strerror(errno));
-			client_close(c);
+			wrlog(L_ERROR, "Client %s receive error: %s", c->cliaddr, strerror(errno));
+// TODO			
+//			client_close(c);
 			return;
 		}
-
-		c->rbytes += r;
-		char *lf = memmem(c->rbuf, c->rbytes, "\n", 1);
-		if (!lf && c->rbytes < sizeof(c->rbuf))
+		c->clibufdata += r;
+		char *lf = memchr(c->clireadbuf, '\n', c->clibufdata);
+		if (!lf && c->clibufdata < IOBUFSIZE)
 			return;
 
 		if (!lf) {
-			wrlog(L_WARNING, "Can't parse request from %s", c->addr);
+			wrlog(L_WARNING, "Can't parse request from %s", c->cliaddr);
 			goto close;
 		}
 
-		if (lf - 1 > c->rbuf && *(lf - 1) == '\r')
+		if (lf - 1 > c->clireadbuf && *(lf - 1) == '\r')
 			lf--;
 		*lf = 0;
 
-		int cno = client_parse_get(c);
+/*		int cno = client_parse_get(c);
 		if (cno == 0) {
-			wrlog(L_WARNING, "Can't parse request from %s", c->addr);
+			wrlog(L_WARNING, "Can't parse request from %s", c->cliaddr);
 			client_write(c, notfound_hdr, strlen(notfound_hdr));
 			goto close;
 		}
@@ -168,8 +166,12 @@ client_cbread(ev_io *w, int revents)
 			write_stat(c->io.fd);
 			goto close;
 		}
+*/
 
 	}
+	return;
+close:
+//	connect_close();	
 	return;
 }
 
